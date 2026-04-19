@@ -43,7 +43,7 @@ function chatbot_seed_defaults(mysqli $conn): void
     $setting_stmt = $conn->prepare("
         INSERT INTO chatbot_settings (setting_key, setting_value)
         VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE setting_value = setting_value
+        ON DUPLICATE KEY UPDATE setting_key = setting_key
     ");
 
     foreach ($settings as $key => $value) {
@@ -66,10 +66,7 @@ function chatbot_seed_defaults(mysqli $conn): void
         INSERT INTO chatbot_options (option_key, option_label, option_response, sort_order, is_active)
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
-            option_label = VALUES(option_label),
-            option_response = VALUES(option_response),
-            sort_order = VALUES(sort_order),
-            is_active = VALUES(is_active)
+            option_key = option_key
     ");
 
     foreach ($options as $option) {
