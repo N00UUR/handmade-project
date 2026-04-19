@@ -10,19 +10,73 @@ if (!isset($_SESSION["is_admin_logged_in"]) || $_SESSION["is_admin_logged_in"] !
 
 chatbot_initialize($conn);
 
+function chatbot_management_build_option_map(array $options): array
+{
+    $map = [];
+
+    foreach ($options as $option) {
+        $map[(int) $option['id']] = $option;
+    }
+
+    return $map;
+}
+
+function chatbot_management_is_valid_key(string $key): bool
+{
+    return (bool) preg_match('/^[a-z_]{2,100}$/', $key);
+}
+
 $errors = [];
-$success_message = '';
+$success_messages = [];
+$default_option_keys = chatbot_get_default_option_keys();
+$options = chatbot_get_options($conn, false);
+$options_by_id = chatbot_management_build_option_map($options);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $welcome_message = isset($_POST['welcome_message']) ? trim($_POST['welcome_message']) : '';
+    $welcome_message = isset($_POST['welcome_message']) ? trim((string) $_POST['welcome_message']) : '';
     $option_ids = $_POST['option_id'] ?? [];
     $option_labels = $_POST['option_label'] ?? [];
     $option_responses = $_POST['option_response'] ?? [];
     $sort_orders = $_POST['sort_order'] ?? [];
     $active_ids = $_POST['is_active'] ?? [];
+    $delete_ids = $_POST['delete_option'] ?? [];
+
+    $new_option_key = isset($_POST['new_option_key']) ? trim((string) $_POST['new_option_key']) : '';
+    $new_option_label = isset($_POST['new_option_label']) ? trim((string) $_POST['new_option_label']) : '';
+    $new_option_response = isset($_POST['new_option_response']) ? trim((string) $_POST['new_option_response']) : '';
+    $new_sort_order = isset($_POST['new_sort_order']) ? (int) $_POST['new_sort_order'] : count($options) + 1;
+    $new_is_active = isset($_POST['new_is_active']) ? 1 : 0;
+
+    $delete_ids = array_map('intval', $delete_ids);
 
     if ($welcome_message === '') {
         $errors[] = 'Welcome message is required.';
+    }
+
+    if ($new_option_key !== '' || $new_option_label !== '' || $new_option_response !== '') {
+        if ($new_option_key === '' || $new_option_label === '' || $new_option_response === '') {
+            $errors[] = 'New topics need a topic key, button label, and response text.';
+        } elseif (!chatbot_management_is_valid_key($new_option_key)) {
+            $errors[] = 'Topic keys must use lowercase letters and underscores only.';
+        } elseif (in_array($new_option_key, array_column($options, 'option_key'), true)) {
+            $errors[] = 'That topic key already exists.';
+        }
+    }
+
+    foreach ($option_ids as $index => $option_id_raw) {
+        $option_id = (int) $option_id_raw;
+
+        if (in_array($option_id, $delete_ids, true)) {
+            continue;
+        }
+
+        $label = trim((string) ($option_labels[$index] ?? ''));
+        $response = trim((string) ($option_responses[$index] ?? ''));
+
+        if ($label === '' || $response === '') {
+            $errors[] = 'Existing topics must keep both a button label and a response text.';
+            break;
+        }
     }
 
     if (empty($errors)) {
@@ -41,28 +95,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id = ?
         ");
 
-        foreach ($option_ids as $index => $option_id) {
-            $option_id = (int) $option_id;
-            $label = trim($option_labels[$index] ?? '');
-            $response = trim($option_responses[$index] ?? '');
-            $order = isset($sort_orders[$index]) ? (int) $sort_orders[$index] : $index + 1;
-            $is_active = in_array((string) $option_id, $active_ids, true) ? 1 : 0;
+        foreach ($option_ids as $index => $option_id_raw) {
+            $option_id = (int) $option_id_raw;
 
-            if ($label === '' || $response === '') {
+            if (!isset($options_by_id[$option_id]) || in_array($option_id, $delete_ids, true)) {
                 continue;
             }
+
+            $label = trim((string) ($option_labels[$index] ?? ''));
+            $response = trim((string) ($option_responses[$index] ?? ''));
+            $order = isset($sort_orders[$index]) ? max(1, (int) $sort_orders[$index]) : $index + 1;
+            $is_active = in_array((string) $option_id, $active_ids, true) ? 1 : 0;
 
             $option_stmt->bind_param('ssiii', $label, $response, $order, $is_active, $option_id);
             $option_stmt->execute();
         }
 
         $option_stmt->close();
-        $success_message = 'Chatbot content updated successfully.';
+
+        if ($new_option_key !== '' && $new_option_label !== '' && $new_option_response !== '') {
+            $insert_stmt = $conn->prepare("
+                INSERT INTO chatbot_options (option_key, option_label, option_response, sort_order, is_active)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $new_sort_order = max(1, $new_sort_order);
+            $insert_stmt->bind_param('sssii', $new_option_key, $new_option_label, $new_option_response, $new_sort_order, $new_is_active);
+            $insert_stmt->execute();
+            $insert_stmt->close();
+            $success_messages[] = 'New chatbot topic added.';
+        }
+
+        $deactivated_defaults = 0;
+        $deleted_custom_topics = 0;
+
+        if (!empty($delete_ids)) {
+            $deactivate_stmt = $conn->prepare("
+                UPDATE chatbot_options
+                SET is_active = 0
+                WHERE id = ?
+            ");
+            $delete_stmt = $conn->prepare("
+                DELETE FROM chatbot_options
+                WHERE id = ?
+            ");
+
+            foreach ($delete_ids as $option_id) {
+                if (!isset($options_by_id[$option_id])) {
+                    continue;
+                }
+
+                $option_key = (string) $options_by_id[$option_id]['option_key'];
+
+                if (in_array($option_key, $default_option_keys, true)) {
+                    $deactivate_stmt->bind_param('i', $option_id);
+                    $deactivate_stmt->execute();
+                    $deactivated_defaults++;
+                    continue;
+                }
+
+                $delete_stmt->bind_param('i', $option_id);
+                $delete_stmt->execute();
+                $deleted_custom_topics++;
+            }
+
+            $deactivate_stmt->close();
+            $delete_stmt->close();
+        }
+
+        $success_messages[] = 'Chatbot content updated successfully.';
+
+        if ($deactivated_defaults > 0) {
+            $success_messages[] = $deactivated_defaults . ' default topic(s) were deactivated.';
+        }
+
+        if ($deleted_custom_topics > 0) {
+            $success_messages[] = $deleted_custom_topics . ' custom topic(s) were deleted.';
+        }
+
+        $options = chatbot_get_options($conn, false);
+        $options_by_id = chatbot_management_build_option_map($options);
     }
 }
 
 $settings = chatbot_get_settings($conn);
-$options = chatbot_get_options($conn, false);
 
 $issues_query = "
     SELECT ci.id, ci.order_number, ci.issue_message, ci.created_at, u.username
@@ -119,9 +234,51 @@ $issues_result = $conn->query($issues_query);
             background: #fafafa;
         }
 
-        .option-card h3 {
-            margin-top: 0;
+        .option-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .option-card h3,
+        .option-card h4 {
+            margin: 0;
             color: #4b49ac;
+        }
+
+        .key-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .topic-key {
+            font-family: Consolas, monospace;
+            background: #f0f2ff;
+            color: #2b2f77;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .topic-badge {
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .topic-badge-default {
+            background: #e8f0ff;
+            color: #204a9a;
+        }
+
+        .topic-badge-custom {
+            background: #eaf7ee;
+            color: #227a45;
         }
 
         .status-message {
@@ -146,6 +303,11 @@ $issues_result = $conn->query($issues_query);
             gap: 8px;
             margin-top: 10px;
         }
+
+        .muted-text {
+            color: #666;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -157,9 +319,9 @@ $issues_result = $conn->query($issues_query);
         <?php include 'navigation.php'; ?>
 
         <div class="main">
-            <?php if (!empty($success_message)): ?>
+            <?php foreach ($success_messages as $success_message): ?>
                 <div class="status-message status-success"><?= htmlspecialchars($success_message) ?></div>
-            <?php endif; ?>
+            <?php endforeach; ?>
 
             <?php if (!empty($errors)): ?>
                 <div class="status-message status-error">
@@ -179,10 +341,21 @@ $issues_result = $conn->query($issues_query);
                 </div>
 
                 <div class="panel">
-                    <h2>Chatbot Options</h2>
+                    <div class="option-header">
+                        <h2>Chatbot Topics</h2>
+                        <div class="muted-text">The widget shows active topics only.</div>
+                    </div>
+
                     <?php foreach ($options as $option): ?>
+                        <?php $is_default_topic = in_array($option['option_key'], $default_option_keys, true); ?>
                         <div class="option-card">
-                            <h3><?= htmlspecialchars($option['option_key']) ?></h3>
+                            <div class="key-row">
+                                <span class="topic-key"><?= htmlspecialchars($option['option_key']) ?></span>
+                                <span class="topic-badge <?= $is_default_topic ? 'topic-badge-default' : 'topic-badge-custom' ?>">
+                                    <?= $is_default_topic ? 'Default topic' : 'Custom topic' ?>
+                                </span>
+                            </div>
+
                             <input type="hidden" name="option_id[]" value="<?= (int) $option['id'] ?>">
 
                             <div class="form-group">
@@ -209,11 +382,49 @@ $issues_result = $conn->query($issues_query);
                                 >
                                 Active
                             </label>
+
+                            <label class="checkbox-row">
+                                <input
+                                    type="checkbox"
+                                    name="delete_option[]"
+                                    value="<?= (int) $option['id'] ?>"
+                                >
+                                <?= $is_default_topic ? 'Deactivate this default topic' : 'Delete this custom topic' ?>
+                            </label>
                         </div>
                     <?php endforeach; ?>
-
-                    <button type="submit" class="btn edit">Save Chatbot Settings</button>
                 </div>
+
+                <div class="panel">
+                    <h2>Add New Topic</h2>
+                    <div class="form-group">
+                        <label for="new_option_key">Topic Key</label>
+                        <input id="new_option_key" type="text" name="new_option_key" value="" placeholder="example_topic">
+                        <div class="muted-text">Use lowercase letters and underscores only.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_option_label">Button Label</label>
+                        <input id="new_option_label" type="text" name="new_option_label" value="" dir="rtl">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_option_response">Response Text</label>
+                        <textarea id="new_option_response" name="new_option_response" rows="4" dir="rtl"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_sort_order">Sort Order</label>
+                        <input id="new_sort_order" type="number" name="new_sort_order" value="<?= count($options) + 1 ?>" min="1">
+                    </div>
+
+                    <label class="checkbox-row">
+                        <input type="checkbox" name="new_is_active" value="1" checked>
+                        Active
+                    </label>
+                </div>
+
+                <button type="submit" class="btn edit">Save Chatbot Settings</button>
             </form>
 
             <div class="panel">

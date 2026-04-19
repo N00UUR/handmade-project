@@ -104,6 +104,19 @@ function chatbot_ensure_tables(mysqli $conn): void
     }
 }
 
+function chatbot_get_default_option_keys(): array
+{
+    return [
+        'shipping',
+        'payment',
+        'returns',
+        'buy',
+        'sell',
+        'issue',
+        'product_search',
+    ];
+}
+
 function chatbot_seed_defaults(mysqli $conn): void
 {
     $settings = [
