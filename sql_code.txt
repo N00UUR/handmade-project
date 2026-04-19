@@ -1,0 +1,79 @@
+create database if not exists hand_made;
+use hand_made;
+
+CREATE TABLE if not exists roles (
+    role_id INT PRIMARY KEY AUTO_INCREMENT,
+    role_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE if not exists users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    role_id INT NOT NULL,
+    FOREIGN KEY (role_id) REFERENCES roles(role_id)
+);
+
+INSERT INTO roles (role_name) VALUES ('Customer'), ('Seller');
+
+CREATE TABLE if not exists products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    available_count INT NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    image_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE carts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    CONSTRAINT fk_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS chatbot_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT NOT NULL
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chatbot_options (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    option_key VARCHAR(100) NOT NULL UNIQUE,
+    option_label VARCHAR(255) NOT NULL,
+    option_response TEXT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chatbot_issues (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    order_number VARCHAR(100) NULL,
+    issue_message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chatbot_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+INSERT INTO chatbot_settings (setting_key, setting_value) VALUES
+('welcome_message', 'أهلاً بك في متجر المنتجات اليدوية. اختر من القائمة التالية وسأساعدك فورًا.')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+INSERT INTO chatbot_options (option_key, option_label, option_response, sort_order, is_active) VALUES
+('shipping', 'الاستفسار عن الشحن', 'مدة الشحن من 3 إلى 7 أيام عمل داخل مصر، وتكلفة الشحن تظهر عند تأكيد الطلب حسب المحافظة.', 1, 1),
+('payment', 'طرق الدفع', 'يمكنك الدفع عند الاستلام أو باستخدام التحويل البنكي حسب توفر الطريقة في طلبك.', 2, 1),
+('returns', 'سياسة الاسترجاع', 'يمكنك طلب الاسترجاع خلال 14 يومًا إذا كان المنتج بحالته الأصلية ولم يتم استخدامه.', 3, 1),
+('buy', 'عايز أشتري', 'تصفح المنتجات، أضف ما يناسبك إلى السلة، ثم أكمل تسجيل الدخول وإتمام الطلب من صفحة السلة.', 4, 1),
+('sell', 'عايز أبيع على الموقع', 'سجل حسابًا كبائع ثم قم بإضافة منتجاتك من لوحة البائع مع الصور والسعر والكمية المتاحة.', 5, 1),
+('issue', 'عندي مشكلة في طلب', 'اكتب رقم الطلب إن وجد ثم اشرح المشكلة، وسيتم حفظها لمراجعتها من الإدارة.', 6, 1),
+('product_search', 'اسأل عن منتج', 'اكتب اسم المنتج أو جزءًا منه وسأعرض لك النتائج المتاحة.', 7, 1)
+ON DUPLICATE KEY UPDATE
+    option_label = VALUES(option_label),
+    option_response = VALUES(option_response),
+    sort_order = VALUES(sort_order),
+    is_active = VALUES(is_active);

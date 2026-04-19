@@ -1,0 +1,31 @@
+id,topic,intent,question,answer,source
+1,account,login_required,"Do I need to log in to use the site?","Yes. The main store page redirects unauthenticated users to the login page, and the cart also requires login.",index.php; cart.php; login.php
+2,account,login,"How do I log in?","Go to the login page and enter a valid email address and password. If the credentials are correct, customers are sent to the store homepage and sellers are sent to the seller page.",login.php
+3,account,login_errors,"What login errors can appear?","The site can show these login errors: Please enter a valid email address. Please enter your password. Invalid email or password.",login.php
+4,account,register,"How do I create an account?","Open the registration page, enter username, email, password, confirm the password, and choose a role: Customer or Seller.",register.php
+5,account,register_validation,"What are the registration rules?","Username is required. Email must be valid. Password must be at least 6 characters. Password and confirmation must match. A role must be selected. Username or email must be unique.",register.php
+6,account,roles,"What user roles exist?","The application supports two roles: Customer and Seller.",register.php; Dump20241028.sql
+7,seller,add_product,"How does a seller add a product?","A logged-in seller can submit Product Name, Description, Category, Price, Available Count, and an image file. Supported image types are JPG, JPEG, PNG, and GIF.",seller.php
+8,seller,product_upload_result,"What happens after a seller uploads a product?","If the image upload and database insert succeed, the site shows: Product added successfully!",seller.php
+9,seller,product_fields,"What product fields are stored?","Products include name, description, available_count, category, price, image_path, and created_at.",Dump20241028.sql; seller.php
+10,product,product_details,"What appears on a product details page?","The product details page shows the image, product name, description, price, available stock, and an Add to Cart button.",product_details.php
+11,product,product_missing,"What happens if a product does not exist?","If a requested product is missing, the site shows: Product not found.",product_details.php
+12,product,search,"Can users search for products?","Yes. The homepage search sends the user to index.php with a search query and searches product names using a LIKE filter.",index.php
+13,product,browse_category,"Can users browse by category?","Yes. The homepage can filter products by category, and category links point to index.php with a category query parameter.",index.php
+14,cart,cart_view,"What does the cart page show?","The cart page shows product image, name, price, quantity controls, item subtotal, VAT, delivery fee, and grand total.",cart.php
+15,cart,quantity_update,"How does quantity updating work in the cart?","Users can increase or decrease quantity. If the new quantity drops below 1, the item is removed from the cart. Quantities cannot exceed available stock.",cart.php
+16,cart,stock_limit,"What happens if a customer requests more than available stock?","The site shows: Requested quantity exceeds available stock.",cart.php
+17,cart,pricing,"How are cart totals calculated?","The cart uses VAT of 19 percent and a delivery fee of 4.95. Grand total equals item totals plus VAT plus delivery fee.",cart.php
+18,checkout,requirements,"What information is required at checkout?","Checkout requires full name, address, and phone number.",cart.php
+19,checkout,missing_fields,"What if checkout fields are missing?","If required checkout fields are empty, the site alerts: Please fill in all required fields.",cart.php
+20,checkout,success,"What happens after checkout?","On successful checkout, product stock is reduced, products with zero stock may be deleted, the user's cart is cleared, and the site alerts that the order was placed successfully before redirecting to the homepage.",cart.php
+21,service,shipping_offer,"Is there a free shipping offer?","Yes. The homepage advertises Free Shipping this week for orders over 55 dollars.",index.php
+22,service,worldwide_delivery,"Do you offer worldwide delivery?","Yes. The homepage lists Worldwide Delivery for orders over 100 dollars.",index.php
+23,service,next_day_delivery,"Is next day delivery available?","Yes, but the homepage notes that next day delivery is for UK orders only.",index.php
+24,service,support_hours,"What are the support hours?","The homepage lists Best Online Support with hours from 8AM to 11PM.",index.php
+25,service,returns,"What is the return policy?","The homepage advertises an Easy and Free Return policy.",index.php
+26,service,money_back,"Is there a money-back offer?","Yes. The homepage advertises 30 percent money back for orders over 100 dollars.",index.php
+27,contact,contact_info,"How can customers contact the company?","The footer lists this contact information: 419 State 414 Rte, Beaver Dams, New York, 14812, USA. Phone: (607) 936-8058. Email: example@gmail.com.",index.php
+28,content,brand_positioning,"How does the site describe its handmade products?","The testimonial section describes the products as premium handmade products that showcase craftsmanship and sustainability and offer a unique, eco-conscious experience.",index.php
+29,content,blog_gallery,"What gallery or blog topics are highlighted?","The homepage highlights handmade clothes for women, gifts for friends, gifts for him, and art prints.",index.php
+30,category,seller_categories,"What categories can sellers choose when adding products?","Seller category options include Home, Manual, Spooky Wreath, Candel Sconces, Leopard Print, Baby Clothing, Necklace, Art Print, Art Board, Water Drawing, Clothing, Sand Drawing, Women's, Formal, Casual, Perfume, Cosmetics, Bags, Jewelry, Earrings, Couple Rings, Bracelets, Clothes Perfume, Deodorant, Flower Fragrance, Air Freshener, Blog, Hot Offers, Men's (Mobile), Shirt, Shorts & Jeans, Safety Shoes, Wallet, Women's (Mobile), Dress & Frock, Makeup Kit, Jewelry (Mobile), and Perfume (Mobile).",seller.php
