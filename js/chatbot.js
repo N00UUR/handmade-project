@@ -17,6 +17,7 @@
   var topicLabel = widget.querySelector('[data-chatbot-topic-label]');
   var resetButton = widget.querySelector('[data-chatbot-reset]');
   var chatForm = widget.querySelector('[data-chatbot-chat-form]');
+  var orderNumberInput = widget.querySelector('#chatbot-order-number');
   var messageInput = widget.querySelector('#chatbot-message');
   var resultsContainer = widget.querySelector('[data-chatbot-search-results]');
   var configUrl = widget.getAttribute('data-config-url');
@@ -104,6 +105,8 @@
     clearContainer(messages);
     resultsContainer.innerHTML = '';
     resultsContainer.hidden = true;
+    orderNumberInput.value = '';
+    orderNumberInput.hidden = true;
     messageInput.value = '';
     messageInput.placeholder = 'Choose, write your question';
     content.scrollTop = 0;
@@ -117,10 +120,19 @@
     resultsContainer.innerHTML = '';
     resultsContainer.hidden = true;
     topicLabel.textContent = option.option_label;
+    orderNumberInput.value = '';
+    orderNumberInput.hidden = option.option_key !== 'issue';
     messageInput.value = '';
-    messageInput.placeholder = 'Write your question here';
+    messageInput.placeholder = option.option_key === 'issue'
+      ? 'Describe the issue here'
+      : 'Write your question here';
     appendBubble(messages, option.option_label, 'user');
     appendBubble(messages, option.option_response, 'system');
+    if (option.option_key === 'issue') {
+      orderNumberInput.focus();
+      return;
+    }
+
     messageInput.focus();
   }
 
@@ -228,11 +240,18 @@
       });
   }
 
-  function submitIssue(message) {
+  function submitIssue(orderNumber, message) {
     var formData = new FormData();
+    var userMessage = message;
+
+    if (orderNumber) {
+      formData.append('order_number', orderNumber);
+      userMessage = 'Order number: ' + orderNumber + '\nIssue: ' + message;
+    }
+
     formData.append('issue_message', message);
 
-    appendBubble(messages, message, 'user');
+    appendBubble(messages, userMessage, 'user');
     appendBubble(messages, 'Sending your issue to the store team...', 'system');
 
     fetch(issueUrl, {
@@ -347,10 +366,12 @@
 
   chatForm.addEventListener('submit', function (event) {
     var message;
+    var orderNumber;
 
     event.preventDefault();
 
     message = String(messageInput.value || '').trim();
+    orderNumber = String(orderNumberInput.value || '').trim();
 
     if (!message) {
       return;
@@ -365,7 +386,8 @@
     messageInput.value = '';
 
     if (activeOption.option_key === 'issue') {
-      submitIssue(message);
+      orderNumberInput.value = '';
+      submitIssue(orderNumber, message);
       return;
     }
 

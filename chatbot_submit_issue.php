@@ -22,11 +22,20 @@ $user_id = isset($_SESSION['is_logged_in'], $_SESSION['user_id']) && $_SESSION['
     ? (int) $_SESSION['user_id']
     : null;
 
+if ($order_number !== '' && mb_strlen($order_number) > 100) {
+    http_response_code(422);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Please enter an order number that is 100 characters or fewer.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
 if ($issue_message === '') {
     http_response_code(422);
     echo json_encode([
         'success' => false,
-        'message' => 'يرجى كتابة المشكلة أولاً.',
+        'message' => 'ÙŠØ±Ø¬Ù‰ ÙƒØªØ§Ø¨Ø© Ø§Ù„Ù…Ø´ÙƒÙ„Ø© Ø£ÙˆÙ„Ø§Ù‹.',
     ], JSON_UNESCAPED_UNICODE);
     exit();
 }
@@ -35,7 +44,7 @@ if (mb_strlen($issue_message) > 1000) {
     http_response_code(422);
     echo json_encode([
         'success' => false,
-        'message' => 'نص المشكلة طويل جدًا. حاول أن يكون أقل من 1000 حرف.',
+        'message' => 'Ù†Øµ Ø§Ù„Ù…Ø´ÙƒÙ„Ø© Ø·ÙˆÙŠÙ„ Ø¬Ø¯Ù‹Ø§. Ø­Ø§ÙˆÙ„ Ø£Ù† ÙŠÙƒÙˆÙ† Ø£Ù‚Ù„ Ù…Ù† 1000 Ø­Ø±Ù.',
     ], JSON_UNESCAPED_UNICODE);
     exit();
 }
@@ -54,12 +63,12 @@ if (!$success) {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'تعذر حفظ المشكلة حاليًا.',
+        'message' => 'ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø§Ù„Ù…Ø´ÙƒÙ„Ø© Ø­Ø§Ù„ÙŠÙ‹Ø§.',
     ], JSON_UNESCAPED_UNICODE);
     exit();
 }
 
 echo json_encode([
     'success' => true,
-    'message' => 'تم إرسال المشكلة بنجاح.',
+    'message' => 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ù…Ø´ÙƒÙ„Ø© Ø¨Ù†Ø¬Ø§Ø­.',
 ], JSON_UNESCAPED_UNICODE);

@@ -73,6 +73,15 @@ $chatbot_js_version = file_exists(__DIR__ . '/js/chatbot.js') ? (string) filemti
                     <div class="chatbot-inline-form">
                         <input
                             type="text"
+                            id="chatbot-order-number"
+                            name="order_number"
+                            class="chatbot-input chatbot-inline-input"
+                            placeholder="Order number (optional)"
+                            autocomplete="off"
+                            hidden
+                        >
+                        <input
+                            type="text"
                             id="chatbot-message"
                             name="message"
                             class="chatbot-input chatbot-inline-input"
