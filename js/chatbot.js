@@ -24,6 +24,7 @@
   var issueUrl = widget.getAttribute('data-issue-url');
   var messageUrl = widget.getAttribute('data-message-url');
   var productSearchUrl = widget.getAttribute('data-product-search-url');
+  var csrfToken = widget.getAttribute('data-csrf-token') || '';
   var initialWelcomeMessage = widget.getAttribute('data-welcome-message') || 'Welcome. Choose a topic to start.';
   var chatbotData = null;
   var activeOption = null;
@@ -47,6 +48,16 @@
 
   function clearContainer(container) {
     container.innerHTML = '';
+  }
+
+  function buildRequestHeaders(extraHeaders) {
+    var headers = extraHeaders ? Object.assign({}, extraHeaders) : {};
+
+    if (csrfToken) {
+      headers['X-Chatbot-CSRF'] = csrfToken;
+    }
+
+    return headers;
   }
 
   function escapeHtml(text) {
@@ -256,6 +267,7 @@
 
     fetch(issueUrl, {
       method: 'POST',
+      headers: buildRequestHeaders(),
       body: formData
     })
       .then(function (response) {
@@ -285,9 +297,9 @@
     resultsContainer.hidden = true;
 
     fetch(productSearchUrl + '?q=' + encodeURIComponent(message), {
-      headers: {
+      headers: buildRequestHeaders({
         Accept: 'application/json'
-      }
+      })
     })
       .then(function (response) {
         return response.json().then(function (data) {
@@ -318,10 +330,10 @@
 
     fetch(messageUrl, {
       method: 'POST',
-      headers: {
+      headers: buildRequestHeaders({
         'Content-Type': 'application/json',
         Accept: 'application/json'
-      },
+      }),
       body: JSON.stringify({
         topic: activeOption.option_key,
         message: message

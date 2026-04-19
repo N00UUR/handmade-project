@@ -3,6 +3,76 @@ if (!isset($conn) || !($conn instanceof mysqli)) {
     require_once __DIR__ . '/db_connect.php';
 }
 
+function chatbot_ensure_session_started(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+}
+
+function chatbot_json_response(array $payload, int $status_code = 200): void
+{
+    http_response_code($status_code);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
+function chatbot_get_csrf_token(): string
+{
+    chatbot_ensure_session_started();
+
+    if (empty($_SESSION['chatbot_csrf_token'])) {
+        $_SESSION['chatbot_csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    return $_SESSION['chatbot_csrf_token'];
+}
+
+function chatbot_require_csrf_token(): void
+{
+    chatbot_ensure_session_started();
+
+    $token = isset($_SERVER['HTTP_X_CHATBOT_CSRF']) ? trim((string) $_SERVER['HTTP_X_CHATBOT_CSRF']) : '';
+    $session_token = isset($_SESSION['chatbot_csrf_token']) ? (string) $_SESSION['chatbot_csrf_token'] : '';
+
+    if ($token === '' || $session_token === '' || !hash_equals($session_token, $token)) {
+        chatbot_json_response([
+            'success' => false,
+            'message' => 'Invalid chatbot security token. Refresh the page and try again.',
+        ], 403);
+    }
+}
+
+function chatbot_enforce_rate_limit(string $key, int $max_attempts, int $window_seconds): void
+{
+    chatbot_ensure_session_started();
+
+    $now = time();
+
+    if (!isset($_SESSION['chatbot_rate_limits']) || !is_array($_SESSION['chatbot_rate_limits'])) {
+        $_SESSION['chatbot_rate_limits'] = [];
+    }
+
+    $entries = $_SESSION['chatbot_rate_limits'][$key] ?? [];
+    $entries = array_values(array_filter($entries, static function ($timestamp) use ($now, $window_seconds) {
+        return is_int($timestamp) && ($now - $timestamp) < $window_seconds;
+    }));
+
+    if (count($entries) >= $max_attempts) {
+        $oldest_entry = $entries[0];
+        $retry_after = max(1, $window_seconds - ($now - $oldest_entry));
+
+        header('Retry-After: ' . $retry_after);
+        chatbot_json_response([
+            'success' => false,
+            'message' => 'Too many chatbot requests. Please wait a moment and try again.',
+        ], 429);
+    }
+
+    $entries[] = $now;
+    $_SESSION['chatbot_rate_limits'][$key] = $entries;
+}
+
 function chatbot_ensure_tables(mysqli $conn): void
 {
     $queries = [

@@ -6,37 +6,43 @@ require_once __DIR__ . '/chatbot_bootstrap.php';
 chatbot_initialize($conn);
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    http_response_code(405);
-    echo json_encode([
+    chatbot_json_response([
         'success' => false,
         'message' => 'Method not allowed.',
         'products' => [],
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
+    ], 405);
 }
 
-$query = isset($_GET['q']) ? trim($_GET['q']) : '';
+chatbot_require_csrf_token();
+chatbot_enforce_rate_limit('product_search', 30, 60);
+
+$query = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 
 if ($query === '') {
-    http_response_code(422);
-    echo json_encode([
+    chatbot_json_response([
         'success' => false,
-        'message' => 'يرجى كتابة اسم المنتج أو كلمة للبحث.',
+        'message' => 'Please enter a product name or keyword.',
         'products' => [],
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
+    ], 422);
 }
 
 if (mb_strlen($query) > 100) {
-    http_response_code(422);
-    echo json_encode([
+    chatbot_json_response([
         'success' => false,
-        'message' => 'كلمة البحث طويلة جدًا.',
+        'message' => 'Please keep the search keyword under 100 characters.',
         'products' => [],
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
+    ], 422);
+}
+
+if (preg_match('/[\x00-\x1F\x7F]/u', $query)) {
+    chatbot_json_response([
+        'success' => false,
+        'message' => 'The search keyword contains invalid characters.',
+        'products' => [],
+    ], 422);
 }
 
 $search_term = '%' . $query . '%';
@@ -68,16 +74,15 @@ while ($row = $result->fetch_assoc()) {
 $stmt->close();
 
 if (empty($products)) {
-    echo json_encode([
+    chatbot_json_response([
         'success' => true,
-        'message' => 'لم أجد منتجات مطابقة حاليًا. جرّب اسمًا آخر أو كلمة أقرب لوصف المنتج.',
+        'message' => 'No matching products were found right now. Try another keyword.',
         'products' => [],
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
+    ]);
 }
 
-echo json_encode([
+chatbot_json_response([
     'success' => true,
-    'message' => 'تم العثور على منتجات مناسبة.',
+    'message' => 'Matching products found.',
     'products' => $products,
-], JSON_UNESCAPED_UNICODE);
+]);

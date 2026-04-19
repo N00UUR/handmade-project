@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/chatbot_bootstrap.php';
 
+chatbot_ensure_session_started();
 chatbot_initialize($conn);
 
 $chatbot_settings = chatbot_get_settings($conn);
 $chatbot_options = chatbot_get_options($conn, true);
+$chatbot_csrf_token = chatbot_get_csrf_token();
 $chatbot_config_endpoint = 'chatbot_config.php';
 $chatbot_issue_endpoint = 'chatbot_submit_issue.php';
 $chatbot_message_endpoint = 'chatbot_message.php';
@@ -22,6 +24,7 @@ $chatbot_js_version = file_exists(__DIR__ . '/js/chatbot.js') ? (string) filemti
     data-issue-url="<?php echo htmlspecialchars($chatbot_issue_endpoint, ENT_QUOTES, 'UTF-8'); ?>"
     data-message-url="<?php echo htmlspecialchars($chatbot_message_endpoint, ENT_QUOTES, 'UTF-8'); ?>"
     data-product-search-url="<?php echo htmlspecialchars($chatbot_product_search_endpoint, ENT_QUOTES, 'UTF-8'); ?>"
+    data-csrf-token="<?php echo htmlspecialchars($chatbot_csrf_token, ENT_QUOTES, 'UTF-8'); ?>"
     data-welcome-message="<?php echo htmlspecialchars($chatbot_settings['welcome_message'] ?? 'Welcome. Choose a topic to start.', ENT_QUOTES, 'UTF-8'); ?>"
 >
     <button type="button" class="chatbot-toggle" data-chatbot-toggle aria-expanded="false" aria-controls="chatbot-panel">
