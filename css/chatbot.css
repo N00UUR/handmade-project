@@ -14,6 +14,10 @@
       font-family: 'El Messiri', 'Poppins', sans-serif;
 }
 
+.chatbot-widget [hidden] {
+    display: none !important;
+}
+
 .chatbot-widget:has(.chatbot-panel:not([hidden]))::before {
     content: '';
     position: fixed;
