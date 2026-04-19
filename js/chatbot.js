@@ -20,13 +20,15 @@
   var orderNumberInput = widget.querySelector('#chatbot-order-number');
   var messageInput = widget.querySelector('#chatbot-message');
   var resultsContainer = widget.querySelector('[data-chatbot-search-results]');
-  var configUrl = widget.getAttribute('data-config-url');
   var issueUrl = widget.getAttribute('data-issue-url');
   var messageUrl = widget.getAttribute('data-message-url');
   var productSearchUrl = widget.getAttribute('data-product-search-url');
   var csrfToken = widget.getAttribute('data-csrf-token') || '';
-  var initialWelcomeMessage = widget.getAttribute('data-welcome-message') || 'Welcome. Choose a topic to start.';
-  var chatbotData = null;
+  var initialWelcomeMessage = widget.getAttribute('data-welcome-message') || 'أهلاً بك. اختر موضوعًا لتبدأ.';
+  var chatbotData = {
+    welcome_message: initialWelcomeMessage,
+    options: collectOptionsFromDom()
+  };
   var activeOption = null;
 
   function setPanelState(open) {
@@ -119,7 +121,7 @@
     orderNumberInput.value = '';
     orderNumberInput.hidden = true;
     messageInput.value = '';
-    messageInput.placeholder = 'Choose, write your question';
+    messageInput.placeholder = 'اختر موضوعًا ثم اكتب سؤالك';
     content.scrollTop = 0;
   }
 
@@ -135,8 +137,8 @@
     orderNumberInput.hidden = option.option_key !== 'issue';
     messageInput.value = '';
     messageInput.placeholder = option.option_key === 'issue'
-      ? 'Describe the issue here'
-      : 'Write your question here';
+      ? 'اكتب المشكلة هنا'
+      : 'اكتب سؤالك هنا';
     appendBubble(messages, option.option_label, 'user');
     appendBubble(messages, option.option_response, 'system');
     if (option.option_key === 'issue') {
@@ -202,53 +204,11 @@
     );
   }
 
-  function loadConfig() {
-    var initialOptions = collectOptionsFromDom();
-
-    if (initialOptions.length > 0) {
-      chatbotData = {
-        welcome_message: initialWelcomeMessage,
-        options: initialOptions
-      };
-      bindOptionButtons(chatbotData.options);
-      renderWelcome(chatbotData.welcome_message);
-      showOptions();
-      showHomeView();
-      return;
-    }
-
-    widget.classList.add('chatbot-loading');
-    renderWelcome('Loading chat...');
-
-    fetch(configUrl, {
-      headers: {
-        Accept: 'application/json'
-      }
-    })
-      .then(function (response) {
-        if (!response.ok) {
-          throw new Error('Request failed');
-        }
-        return response.json();
-      })
-      .then(function (data) {
-        if (!data.success) {
-          throw new Error('Invalid data');
-        }
-
-        chatbotData = data;
-        bindOptionButtons(chatbotData.options);
-        renderWelcome(chatbotData.welcome_message || 'Welcome. Choose a topic to start.');
-        showOptions();
-        showHomeView();
-      })
-      .catch(function () {
-        renderWelcome('The chat is unavailable right now. Please try again.');
-        optionsContainer.hidden = true;
-      })
-      .finally(function () {
-        widget.classList.remove('chatbot-loading');
-      });
+  function initializeWidget() {
+    bindOptionButtons(chatbotData.options || []);
+    renderWelcome(chatbotData.welcome_message);
+    showOptions();
+    showHomeView();
   }
 
   function submitIssue(orderNumber, message) {
@@ -263,7 +223,7 @@
     formData.append('issue_message', message);
 
     appendBubble(messages, userMessage, 'user');
-    appendBubble(messages, 'Sending your issue to the store team...', 'system');
+    appendBubble(messages, 'جارٍ إرسال المشكلة لفريق المتجر...', 'system');
 
     fetch(issueUrl, {
       method: 'POST',
@@ -283,16 +243,16 @@
           throw new Error(result.data && result.data.message ? result.data.message : 'Submit failed');
         }
 
-        appendBubble(messages, result.data.message || 'Your issue was sent successfully.', 'system');
+        appendBubble(messages, result.data.message || 'تم إرسال المشكلة بنجاح.', 'system');
       })
       .catch(function (error) {
-        appendBubble(messages, error.message || 'Something went wrong while sending the issue.', 'system');
+        appendBubble(messages, error.message || 'حدثت مشكلة أثناء إرسال الشكوى.', 'system');
       });
   }
 
   function submitProductSearch(message) {
     appendBubble(messages, message, 'user');
-    appendBubble(messages, 'Searching for matching products...', 'system');
+    appendBubble(messages, 'جارٍ البحث عن منتجات مناسبة...', 'system');
     resultsContainer.innerHTML = '';
     resultsContainer.hidden = true;
 
@@ -314,14 +274,14 @@
           throw new Error(result.data && result.data.message ? result.data.message : 'Search failed');
         }
 
-        appendBubble(messages, result.data.message || 'Here are the available results.', 'system');
+        appendBubble(messages, result.data.message || 'هذه هي النتائج المتاحة.', 'system');
 
         if (Array.isArray(result.data.products) && result.data.products.length > 0) {
           renderSearchResults(result.data.products);
         }
       })
       .catch(function (error) {
-        appendBubble(messages, error.message || 'Something went wrong while searching.', 'system');
+        appendBubble(messages, error.message || 'حدثت مشكلة أثناء البحث.', 'system');
       });
   }
 
@@ -355,17 +315,13 @@
         appendBubble(messages, result.data.reply || activeOption.option_response, 'system');
       })
       .catch(function (error) {
-        appendBubble(messages, error.message || 'The assistant could not answer right now.', 'system');
+        appendBubble(messages, error.message || 'المساعد غير متاح الآن.', 'system');
       });
   }
 
   toggle.addEventListener('click', function () {
     var isOpen = !panel.hidden;
     setPanelState(!isOpen);
-
-    if (!isOpen && !chatbotData) {
-      loadConfig();
-    }
   });
 
   closeButton.addEventListener('click', function () {
@@ -390,7 +346,7 @@
     }
 
     if (!activeOption) {
-      renderWelcome('Choose one of the cards first, then ask your question.');
+      renderWelcome('اختر أحد الموضوعات أولًا ثم اكتب سؤالك.');
       messageInput.value = '';
       return;
     }
@@ -412,4 +368,5 @@
   });
 
   setPanelState(false);
+  initializeWidget();
 })();
